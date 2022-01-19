@@ -1,0 +1,5 @@
+pydub
+requests
+bs4
+pdftotext
+coqui-stt-model-manager
