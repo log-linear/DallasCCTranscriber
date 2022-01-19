@@ -8,17 +8,49 @@ import csv
 
 import pdftotext 
 import spacy
+import spacy.cli.download
 from spacy.tokens import Doc
 from spacy.language import Language
 
 
+def generate_hotword_list(minutes_file: str, range_min: int, range_max: int):
+    """
+    Generate a hotword list from City Council meeting minutes.
+
+    minutes_file : str
+        Path to the City Council meeting minutes PDF
+    range_min : int
+        Minimum boost value to assign to a given word.
+    range_max : int
+        Maximum boost value to assign to a given word.
+    """
+    minutes_path = Path(minutes_file).resolve()
+    minutes = _pdf_to_text(minutes_path)
+    nlp = _load_model('en_core_web_lg')
+    doc = nlp(minutes)
+    propns = _get_proper_nouns(doc)
+    normalized_propns = _normalize_words(propns)
+    propn_freqs = Counter(normalized_propns)
+    normalized_freqs = _normalize_freqs(propn_freqs, range_min, range_max)
+
+    with open(minutes_path.with_suffix('.csv'), 'w', newline='') as csv_file:
+        headers = ['word', 'boost_value']
+        csv_writer = csv.DictWriter(csv_file, delimiter = ',', quotechar='"',
+                                    fieldnames=headers)
+        csv_writer.writeheader()
+
+        for item in normalized_freqs.items():
+            csv_writer.writerow({headers[0]: item[0], headers[1]: item[1]})
+
+
 def _load_model(name) -> Language:
     try:
-        return spacy.load(name)
+        model = spacy.load(name)
     except OSError:
-        print('''spacy model `len_core_web_lg` not found, please install using 
-                 `python -m spacy download en_core_web_lg`''')
-        exit(1)
+        spacy.cli.download.download(name)
+        model = spacy.load(name)
+    
+    return model
 
 
 def _pdf_to_text(pdf_path: Path) -> str:
@@ -63,30 +95,10 @@ def _normalize_freqs(word_freqs: Counter, range_min: int,
     return word_freqs
 
 
-def _write_hotwords_csv(hotwords: Counter, output_path: Path):
-    with open(output_path, 'w', newline='') as csv_file:
-        headers = ['word', 'boost_value']
-        csv_writer = csv.DictWriter(csv_file, delimiter = ',', quotechar='"',
-                                    fieldnames=headers)
-        csv_writer.writeheader()
-
-        for item in hotwords.items():
-            csv_writer.writerow({headers[0]: item[0], headers[1]: item[1]})
-
-
-def generate_hotword_list(minutes_file: str, range_min: int, range_max: int):
-    minutes_path = Path(minutes_file).resolve()
-    minutes = _pdf_to_text(minutes_path)
-    nlp = _load_model('en_core_web_lg')
-    doc = nlp(minutes)
-    propns = _get_proper_nouns(doc)
-    normalized_propns = _normalize_words(propns)
-    propn_freqs = Counter(normalized_propns)
-    normalized_freqs = _normalize_freqs(propn_freqs, range_min, range_max)
-    _write_hotwords_csv(normalized_freqs, minutes_path.with_suffix('.csv'))
-
-
 if __name__ == "__main__":  
+    """
+    Logic for running as a standalone script.
+    """
     argparser = argparse.ArgumentParser(
         description='Generate phrase list for GCP transcriber'
     )
