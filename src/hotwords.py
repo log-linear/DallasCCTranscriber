@@ -31,19 +31,18 @@ from spacy.tokens import Doc
 from spacy.language import Language
 
 
-def generate_hotwords(minutes_file: str, range_min: int, range_max: int):
+def generate_hotwords(minutes_path: Path, range_min: int, range_max: int):
     """
     Generate a hotword list from City Council meeting minutes. List will be 
     saved as a csv file in the same directory as the input PDF file.
 
-    minutes_file : str
+    minutes_path : Path
         Path to the City Council meeting minutes PDF
     range_min : int
         Minimum boost value to assign to a given word.
     range_max : int
         Maximum boost value to assign to a given word.
     """
-    minutes_path = Path(minutes_file).resolve()
     minutes = _pdf_to_str(minutes_path)
     nlp = _load_model('en_core_web_lg')
     doc = nlp(minutes)
@@ -174,5 +173,7 @@ if __name__ == "__main__":
     )
 
     args = argparser.parse_args()
-    generate_hotwords(args.minutes_file, args.range_min, args.range_max)
+    minutes_path = Path(args.minutes_file).resolve()
+
+    generate_hotwords(minutes_path, args.range_min, args.range_max)
 
