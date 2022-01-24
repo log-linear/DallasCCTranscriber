@@ -10,9 +10,8 @@ import numpy as np
 from stt import Model
 
 
-def transcribe_file(audio_path: Path, model_path: Path, scorer_path: Path=None, 
-                    hotwords_path: Path=None, beam_width: int=None,
-                    n_transcripts: int=1):
+def transcribe_audio(audio_path: Path, model_path: Path, scorer_path: Path=None, 
+                     hotwords_path: Path=None, beam_width: int=None):
     transcriber = Model(str(model_path))
 
     if scorer_path is not None:
@@ -26,9 +25,24 @@ def transcribe_file(audio_path: Path, model_path: Path, scorer_path: Path=None,
 
     audio = _wav_to_array(str(audio_path))
 
-    transcription = transcriber.sttWithMetadata(audio, n_transcripts)
+    transcription = transcriber.sttWithMetadata(audio)
+    transcript = transcription.transcripts[0]
 
-    return transcription
+    with open(audio_path.with_suffix('.csv'), 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile, delimiter=',')
+        csv_writer.writerow([
+            'confidence',
+            'text',
+            'timestep',
+            'start_time'
+        ])
+        for token in transcript.tokens:
+            csv_writer.writerow([
+                transcript.confidence,
+                token.text,
+                token.timestep,
+                token.start_time
+            ])
 
 
 def _wav_to_array(audio_path: str):
@@ -91,8 +105,5 @@ if __name__ == '__main__':
     except TypeError:
         hotwords_path = None
 
-    transcription = transcribe_file(audio_path, model_path, scorer_path, 
-                                    hotwords_path)
-
-    print(transcription)
+    transcribe_audio(audio_path, model_path, scorer_path, hotwords_path)
 

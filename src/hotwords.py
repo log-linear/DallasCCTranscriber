@@ -49,7 +49,7 @@ def generate_hotwords(minutes_path: Path, range_min: int, range_max: int):
     propns = _get_proper_nouns(doc)
     normalized_propns = _normalize_words(propns)
     propn_freqs = Counter(normalized_propns)
-    normalized_freqs = _rescale_freqs(propn_freqs, range_min, range_max)
+    rescaled_freqs = _rescale_freqs(propn_freqs, range_min, range_max)
 
     # Write word list to file
     output_path = minutes_path.with_suffix('.csv')
@@ -57,7 +57,7 @@ def generate_hotwords(minutes_path: Path, range_min: int, range_max: int):
         csv_writer = csv.writer(csv_file, delimiter = ',', quotechar='"')
         csv_writer.writerow(['word', 'boost_value'])  # header row
 
-        for item in normalized_freqs.items():
+        for item in rescaled_freqs.items():
             csv_writer.writerow([item[0], item[1]])
 
 
