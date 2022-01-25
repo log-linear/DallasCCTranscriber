@@ -1,17 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import sys
 import wave
 import argparse
 import csv
+import logging
 from pathlib import Path
+from timeit import default_timer as timer
 
 import numpy as np
-from stt import Model
+from stt import Model, CandidateTranscript
 
 
 def transcribe_audio(audio_path: Path, model_path: Path, scorer_path: Path=None, 
                      hotwords_path: Path=None, beam_width: int=None):
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[
+            logging.FileHandler(Path.cwd().parent / 'transcriber.log'),
+            logging.StreamHandler()
+        ]
+    )
+
     transcriber = Model(str(model_path))
 
     if scorer_path is not None:
@@ -25,8 +36,12 @@ def transcribe_audio(audio_path: Path, model_path: Path, scorer_path: Path=None,
 
     audio = _wav_to_array(str(audio_path))
 
+    logging.info(f'Running inference on {str(audio_path)}')
+    start_time = timer()
     transcription = transcriber.sttWithMetadata(audio)
+    end_time = timer() - start_time
     transcript = transcription.transcripts[0]
+    logging.info(f'Transcription completed in {end_time} seconds')
 
     with open(audio_path.with_suffix('.csv'), 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile, delimiter=',')
