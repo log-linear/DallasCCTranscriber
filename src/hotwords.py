@@ -2,21 +2,14 @@
 # -*- coding: utf-8 -*-
 """
 Module to generate hotword lists from PDF files of City Council meeting minutes.
-Hotwords are optional parameters for coqui speech-to-text models that can
-increase the chances of correctly transcribing certain words or phrases. Each 
-hotword is assigned a boost value representing the relative 'weight' assigned 
-to it by the model.
-
-This module generates hotword lists from proper nouns extracted from a meeting 
-minutes file. Boost values are based on word counts for each hotword within
-the minutes file.
+Hotwords are optional parameters for speech-to-text models that can increase the 
+chances of correctly transcribing certain words or phrases. This module 
+generates hotword lists from proper nouns extracted from a meeting 
+minutes file. 
 
 This module can also be run as a standalone script, e.g.:
 
-    python hotwords.py 12012Min.pdf --range_min 1 --range_max 20
-
-Default ranges for hotword boost values are based on coqui's recommended 
-maximum of 20.
+    python hotwords.py 12012Min.pdf
 """
 
 import argparse
@@ -31,7 +24,7 @@ from spacy.tokens import Doc
 from spacy.language import Language
 
 
-def generate_hotwords(minutes_path: Path, range_min: int, range_max: int):
+def generate_hotwords(minutes_path: Path, model: str='en_core_web_lg'):
     """
     Generate a hotword list from City Council meeting minutes. List will be 
     saved as a csv file in the same directory as the input PDF file.
@@ -44,20 +37,19 @@ def generate_hotwords(minutes_path: Path, range_min: int, range_max: int):
         Maximum boost value to assign to a given word.
     """
     minutes = _pdf_to_str(minutes_path)
-    nlp = _load_model('en_core_web_lg')
+    nlp = _load_model(model)
     doc = nlp(minutes)
     propns = _get_proper_nouns(doc)
     normalized_propns = _normalize_words(propns)
     propn_freqs = Counter(normalized_propns)
-    rescaled_freqs = _rescale_freqs(propn_freqs, range_min, range_max)
 
     # Write word list to file
     output_path = minutes_path.with_suffix('.csv')
     with open(output_path, 'w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file, delimiter = ',', quotechar='"')
-        csv_writer.writerow(['word', 'boost_value'])  # header row
+        csv_writer.writerow(['word', 'frequency'])  # header row
 
-        for item in rescaled_freqs.items():
+        for item in propn_freqs.items():
             csv_writer.writerow([item[0], item[1]])
 
 
@@ -117,35 +109,6 @@ def _normalize_words(words: list) -> list:
     return [word.lower() for word in words if word.isalpha()]
 
 
-def _rescale_freqs(word_freqs: Counter, range_min: int, 
-                   range_max: int) -> Counter:
-    """
-    Helper function to convert word frequencies within a word dataset onto a
-    common scale
-
-    word_freqs : Counter
-        Dataset of words as keys and word counts as values
-    range_min : int
-        Minimum value of the desired scale
-    range_max : int
-        Maximum value of the desired scale
-    """
-    word_counts = word_freqs.values()
-    max_word_count = max(word_counts)
-    min_word_count = min(word_counts)
-
-    for item in word_freqs.items():
-        current_word = item[0]
-        current_word_count = item[1]
-        word_freqs[current_word] = (
-            (current_word_count - min_word_count) / 
-            (max_word_count - min_word_count) *
-            (range_max - range_min) + range_min
-        )
-
-    return word_freqs
-
-
 if __name__ == "__main__":  
     """
     Logic for running as a standalone script.
@@ -160,20 +123,14 @@ if __name__ == "__main__":
         help='PDF file containing City Council meeting minutes'
     )
     argparser.add_argument(
-        '--range_min', 
-        default=1,
-        type=int,
-        help='Minimum boost value to assign to a given word.'
-    )
-    argparser.add_argument(
-        '--range_max',
-        default=20,
-        type=int,
-        help='Maximum boost value to assign to a given word.'
+        '--model', 
+        type=str,
+        default='en_core_web_lg',
+        help='spacy model to use for parsing'
     )
 
     args = argparser.parse_args()
     minutes_path = Path(args.minutes_file).resolve()
 
-    generate_hotwords(minutes_path, args.range_min, args.range_max)
+    generate_hotwords(minutes_path, args.model)
 
