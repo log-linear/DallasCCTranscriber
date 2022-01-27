@@ -19,7 +19,6 @@ from collections import Counter
 
 import pdftotext 
 import spacy
-import spacy.cli.download
 from spacy.tokens import Doc
 from spacy.language import Language
 
@@ -31,10 +30,6 @@ def generate_hotwords(minutes_path: Path, model: str='en_core_web_lg'):
 
     minutes_path : Path
         Path to the City Council meeting minutes PDF
-    range_min : int
-        Minimum boost value to assign to a given word.
-    range_max : int
-        Maximum boost value to assign to a given word.
     """
     minutes = _pdf_to_str(minutes_path)
     nlp = _load_model(model)
@@ -63,7 +58,7 @@ def _load_model(name: str) -> Language:
     try:
         model = spacy.load(name)
     except OSError:
-        spacy.cli.download.download(name)
+        spacy.cli.download(name)
         model = spacy.load(name)
     
     return model
